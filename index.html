@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>WA QR Bridge — демо</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    body{font-family:Inter,Arial;background:#f4f7fb;color:#0b2336;padding:18px}
+    .wrap{max-width:980px;margin:0 auto;display:flex;gap:18px}
+    .col{background:white;padding:16px;border-radius:12px;flex:1;box-shadow:0 6px 20px rgba(12,32,64,.06)}
+    img.qr{width:280px;height:280px}
+    .messages{height:480px;overflow:auto;border-radius:8px;padding:8px;background:#f7fbff}
+    .msg{padding:8px;margin-bottom:8px;border-radius:8px;background:#fff;border:1px solid #eef6ff}
+    .out{background:#e8f0ff;margin-left:auto}
+    .controls{display:flex;gap:8px;margin-top:8px}
+    input[type=text]{flex:1;padding:10px;border-radius:8px;border:1px solid #e7edf6}
+    button{padding:10px 14px;border-radius:8px;border:none;background:#2f80ed;color:white;cursor:pointer}
+  </style>
+</head>
+<body>
+  <h2>WhatsApp QR Bridge — демо</h2>
+  <div class="wrap">
+    <div class="col" style="max-width:340px">
+      <h4>QR / Статус</h4>
+      <div id="status">Ожидаем...</div>
+      <div id="qrwrap" style="margin-top:10px">
+        <img id="qr" class="qr" src="" alt="qr"/>
+      </div>
+      <p style="font-size:13px;color:#667085">Сканируйте QR в WhatsApp → Меню → Linked devices → Scan QR</p>
+    </div>
+
+    <div class="col">
+      <h4>Чат (входящие)</h4>
+      <div id="messages" class="messages"></div>
+      <div style="margin-top:10px">
+        <div class="controls">
+          <input id="to" placeholder="Номер получателя в международном виде, например 79001234567" type="text"/>
+          <input id="text" placeholder="Текст сообщения" type="text"/>
+          <button id="send">Отправить</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
+  const qrImg = document.getElementById('qr');
+  const status = document.getElementById('status');
+  const messages = document.getElementById('messages');
+  const sendBtn = document.getElementById('send');
+  const inputTo = document.getElementById('to');
+  const inputText = document.getElementById('text');
+
+  socket.on('connect', ()=> console.log('socket connected'));
+  socket.on('qr', data => {
+    qrImg.src = data.qrDataUrl;
+    status.textContent = 'Сканируйте QR в приложении WhatsApp';
+  });
+  socket.on('ready', ()=> {
+    status.textContent = 'Готово — WhatsApp подключён';
+    qrImg.src = '';
+  });
+  socket.on('authenticated', ()=> status.textContent = 'Аутентифицировано');
+  socket.on('auth_failure', ()=> status.textContent = 'Ошибка аутентификации');
+  socket.on('disconnected', ()=> status.textContent = 'Отключено');
+
+  socket.on('message', m => {
+    const el = document.createElement('div'); el.className='msg';
+    el.innerHTML = `<b>${m.from}</b><div>${m.body}</div><small>${new Date(m.timestamp).toLocaleString()}</small>`;
+    messages.appendChild(el); messages.scrollTop = messages.scrollHeight;
+  });
+
+  socket.on('outgoing', o => {
+    const el = document.createElement('div'); el.className='msg out';
+    el.innerHTML = `<b>Я → ${o.to}</b><div>${o.text}</div><small>${new Date(o.timestamp).toLocaleString()}</small>`;
+    messages.appendChild(el); messages.scrollTop = messages.scrollHeight;
+  });
+
+  sendBtn.onclick = async ()=>{
+    const to = inputTo.value.trim();
+    const text = inputText.value.trim();
+    if(!to || !text){ alert('Введите номер и текст'); return; }
+    try {
+      const resp = await fetch('/send', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ to, text })
+      });
+      const j = await resp.json();
+      if(!j.ok) alert('Ошибка: ' + (j.error || JSON.stringify(j)));
+      inputText.value = '';
+    } catch(e){ alert('Ошибка отправки: ' + e); }
+  }
+</script>
+</body>
+</html>
