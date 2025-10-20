@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <title>WA QR Bridge — демо</title>
+  <title>WA QR Bridge — Render Ready</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
     body{font-family:Inter,Arial;background:#f4f7fb;color:#0b2336;padding:18px}
@@ -18,7 +18,7 @@
   </style>
 </head>
 <body>
-  <h2>WhatsApp QR Bridge — демо</h2>
+  <h2>WhatsApp QR Bridge — Render Ready</h2>
   <div class="wrap">
     <div class="col" style="max-width:340px">
       <h4>QR / Статус</h4>
@@ -26,7 +26,7 @@
       <div id="qrwrap" style="margin-top:10px">
         <img id="qr" class="qr" src="" alt="qr"/>
       </div>
-      <p style="font-size:13px;color:#667085">Сканируйте QR в WhatsApp → Меню → Linked devices → Scan QR</p>
+      <p style="font-size:13px;color:#667085">Сканируйте QR в WhatsApp → Связанные устройства → Сканировать QR</p>
     </div>
 
     <div class="col">
@@ -34,7 +34,7 @@
       <div id="messages" class="messages"></div>
       <div style="margin-top:10px">
         <div class="controls">
-          <input id="to" placeholder="Номер получателя в международном виде, например 79001234567" type="text"/>
+          <input id="to" placeholder="Номер без +, например 79001234567" type="text"/>
           <input id="text" placeholder="Текст сообщения" type="text"/>
           <button id="send">Отправить</button>
         </div>
@@ -52,27 +52,19 @@
   const inputTo = document.getElementById('to');
   const inputText = document.getElementById('text');
 
-  socket.on('connect', ()=> console.log('socket connected'));
-  socket.on('qr', data => {
-    qrImg.src = data.qrDataUrl;
-    status.textContent = 'Сканируйте QR в приложении WhatsApp';
-  });
-  socket.on('ready', ()=> {
-    status.textContent = 'Готово — WhatsApp подключён';
-    qrImg.src = '';
-  });
-  socket.on('authenticated', ()=> status.textContent = 'Аутентифицировано');
-  socket.on('auth_failure', ()=> status.textContent = 'Ошибка аутентификации');
-  socket.on('disconnected', ()=> status.textContent = 'Отключено');
+  socket.on('qr', d => { qrImg.src = d.qrDataUrl; status.textContent='Сканируйте QR'; });
+  socket.on('ready', ()=> { status.textContent='Готово — подключено'; qrImg.src=''; });
+  socket.on('authenticated', ()=> status.textContent='Аутентифицировано');
+  socket.on('auth_failure', ()=> status.textContent='Ошибка аутентификации');
+  socket.on('disconnected', ()=> status.textContent='Отключено');
 
   socket.on('message', m => {
-    const el = document.createElement('div'); el.className='msg';
+    const el=document.createElement('div'); el.className='msg';
     el.innerHTML = `<b>${m.from}</b><div>${m.body}</div><small>${new Date(m.timestamp).toLocaleString()}</small>`;
     messages.appendChild(el); messages.scrollTop = messages.scrollHeight;
   });
-
   socket.on('outgoing', o => {
-    const el = document.createElement('div'); el.className='msg out';
+    const el=document.createElement('div'); el.className='msg out';
     el.innerHTML = `<b>Я → ${o.to}</b><div>${o.text}</div><small>${new Date(o.timestamp).toLocaleString()}</small>`;
     messages.appendChild(el); messages.scrollTop = messages.scrollHeight;
   });
@@ -80,16 +72,10 @@
   sendBtn.onclick = async ()=>{
     const to = inputTo.value.trim();
     const text = inputText.value.trim();
-    if(!to || !text){ alert('Введите номер и текст'); return; }
-    try {
-      const resp = await fetch('/send', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ to, text })
-      });
-      const j = await resp.json();
-      if(!j.ok) alert('Ошибка: ' + (j.error || JSON.stringify(j)));
-      inputText.value = '';
-    } catch(e){ alert('Ошибка отправки: ' + e); }
+    if(!to||!text){ alert('Введите номер и текст'); return; }
+    const r = await fetch('/send', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ to, text }) });
+    const j = await r.json(); if(!j.ok) alert('Ошибка: ' + (j.error||JSON.stringify(j)));
+    inputText.value='';
   }
 </script>
 </body>
